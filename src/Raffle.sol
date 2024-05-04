@@ -15,6 +15,18 @@ contract Raffle is VRFConsumerBaseV2 {
     error Raffle__InsufficientEthSent();
     error Raffle__TransferFailed();
     error Raffle__NotWaitEnoughTimeToPickWinner();
+    error Raffle__RaffleNotOpen();
+    error Raffle__UpkeepNotNeed(
+        uint256 currentBalance,
+        uint256 numPlayers,
+        uint256 raffleState
+    );
+
+    /**Type Declarations */
+    enum RaffleState {
+        OPEN,
+        CALCULATING
+    }
 
     /**State Variables */
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
@@ -32,9 +44,11 @@ contract Raffle is VRFConsumerBaseV2 {
     address payable[] private s_players;
     address private s_recentWinner;
     uint256 private s_lastTimeStamp;
+    RaffleState private s_raffleState;
 
     /**Events */
     event EnteredRaffle(address indexed player);
+    event PickeWinner(address indexed winner);
 
     constructor(
         uint256 entranceFee,
@@ -52,11 +66,16 @@ contract Raffle is VRFConsumerBaseV2 {
         i_callbackGasLimit = callbackGasLimit;
 
         s_lastTimeStamp = block.timestamp;
+        s_raffleState = RaffleState.OPEN;
     }
 
     function enterRaffle() external payable {
         if (msg.value < i_entranceFee) {
             revert Raffle__InsufficientEthSent();
+        }
+
+        if (s_raffleState != RaffleState.OPEN) {
+            revert Raffle__RaffleNotOpen();
         }
 
         s_players.push(payable(msg.sender));
@@ -65,18 +84,53 @@ contract Raffle is VRFConsumerBaseV2 {
         emit EnteredRaffle(msg.sender);
     }
 
-    // 1. Get a random number
-    // 2. Use the random number to pick a player
+    /**
+     * @dev This is the function that the Chainlink nodes call to check if it's time to perform an upkeep
+     * The following conditions must be met to return true:
+     * 1. The interval time has passed between the raffle runs
+     * 2. The raffle is in the OPEN state
+     * 3. The contract has ETH (aka players)
+     * 4. (Implicit) the subscription is funded with LINK
+     */
+    function checkUpkeep(
+        bytes memory /* checkData */
+    ) public view returns (bool upkeepNeeded, bytes memory /* performData */) {
+        bool hasEnoughTimePassed = (block.timestamp - s_lastTimeStamp) >=
+            i_interval;
+        bool isRaffleOpen = s_raffleState == RaffleState.OPEN;
+        bool hasBalance = address(this).balance > 0;
+        bool hasPlayers = s_players.length > 0;
+
+        upkeepNeeded =
+            hasEnoughTimePassed &&
+            isRaffleOpen &&
+            hasBalance &&
+            hasPlayers;
+
+        return (upkeepNeeded, "0x0");
+    }
+
     // 3. Automatically called
-    function pickWinner() public {
+    function performUpkeep(bytes calldata /* performData */) external {
+        (bool upKeepNeeded, ) = checkUpkeep("");
+        if (!upKeepNeeded) {
+            revert Raffle__UpkeepNotNeed(
+                address(this).balance,
+                s_players.length,
+                uint256(s_raffleState)
+            );
+        }
+
         // check to see if enough time has passed
         if ((block.timestamp - s_lastTimeStamp) < i_interval) {
             revert Raffle__NotWaitEnoughTimeToPickWinner();
         }
 
+        s_raffleState = RaffleState.CALCULATING;
+
         // 1. Request RNG from Chainlink
         // 2. Get the random number
-        uint256 requestId = i_vrfCoordinator.requestRandomWords(
+        i_vrfCoordinator.requestRandomWords(
             i_gasLane,
             i_subscriptionId,
             REQUEST_CONFIRMATIONS,
@@ -85,24 +139,27 @@ contract Raffle is VRFConsumerBaseV2 {
         );
     }
 
+    // CEI: check-effect-interaction
     function fulfillRandomWords(
-        uint256 _requestId,
+        uint256 /*requestId*/,
         uint256[] memory _randomWords
     ) internal override {
-        // 1. Use the random number to pick a winner
+        // Checks
+        // Effects (Our own contract)
         uint256 index = _randomWords[0] % s_players.length;
         address payable winner = s_players[index];
         s_recentWinner = winner;
+        s_raffleState = RaffleState.OPEN;
 
-        // 2. Transfer the money to the winner
+        s_players = new address payable[](0);
+        s_lastTimeStamp = block.timestamp;
+        emit PickeWinner(winner);
+
+        // Interactions
         (bool success, ) = winner.call{value: address(this).balance}("");
         if (!success) {
             revert Raffle__TransferFailed();
         }
-
-        // 3. Reset the players array
-        s_players = new address payable[](0);
-        s_lastTimeStamp = block.timestamp;
     }
 
     /** Getter Function*/
