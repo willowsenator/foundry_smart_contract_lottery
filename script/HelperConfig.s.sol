@@ -56,7 +56,7 @@ contract HelperConfig is Script {
                 entranceFee: 0.1 ether,
                 interval: 30,
                 vrfCoordinator: address(vrfCoordinatorMock),
-                gasLane: 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c,
+                gasLane: 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c, // Can be any address for anvil local network
                 subscriptionId: 0, // our script will update this!
                 callbackGasLimit: 500000 //500,000 gas!
             });
