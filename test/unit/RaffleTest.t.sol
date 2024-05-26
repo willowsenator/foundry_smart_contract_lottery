@@ -16,6 +16,7 @@ contract RaffleTest is Test {
     bytes32 gasLane;
     uint64 subscriptionId;
     uint32 callbackGasLimit;
+    address link;
 
     /* Events */
     event EnteredRaffle(address indexed player);
@@ -33,7 +34,8 @@ contract RaffleTest is Test {
             vrfCoordinator,
             gasLane,
             subscriptionId,
-            callbackGasLimit
+            callbackGasLimit,
+            link
         ) = helperConfig.activeNetworkConfig();
 
         vm.deal(PLAYER, STARTING_USER_BALANCE);
@@ -73,7 +75,7 @@ contract RaffleTest is Test {
         raffle.enterRaffle{value: entranceFee}();
     }
 
-    function testCannotEnterRaffleWhenNotOpen() public {
+    function testCantEnterRaffleWhenIsCalculating() public {
         vm.prank(PLAYER);
         raffle.enterRaffle{value: entranceFee}();
         vm.warp(block.timestamp + interval + 1);
@@ -84,6 +86,5 @@ contract RaffleTest is Test {
 
         vm.prank(PLAYER);
         raffle.enterRaffle{value: entranceFee}();
-
     }
 }
