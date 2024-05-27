@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {Raffle} from "../src/Raffle.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 
-import {CreateSubscription} from "./Interaction.s.sol";
+import {CreateSubscription, FundSubscription, AddConsumer} from "./Interaction.s.sol";
 
 contract DeployRaffle is Script {
     function run() external returns (Raffle, HelperConfig) {
@@ -27,8 +27,17 @@ contract DeployRaffle is Script {
             subscriptionId = createSubscription.createSubscription(
                 vrfCoordinator
             );
+
+            // Fund it
+            FundSubscription fundSubscription = new FundSubscription();
+            fundSubscription.fundSubscription(
+                vrfCoordinator,
+                subscriptionId,
+                link
+            );
         }
 
+        // Deploy Raffle
         vm.startBroadcast();
         Raffle raffle = new Raffle(
             entranceFee,
@@ -39,6 +48,14 @@ contract DeployRaffle is Script {
             callbackGasLimit
         );
         vm.stopBroadcast();
+
+        // Add Consumer
+        AddConsumer addConsumer = new AddConsumer();
+        addConsumer.addConsumer(
+            address(raffle),
+            vrfCoordinator,
+            subscriptionId
+        );
 
         return (raffle, helperConfig);
     }
