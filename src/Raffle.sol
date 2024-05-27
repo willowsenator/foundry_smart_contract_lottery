@@ -48,7 +48,8 @@ contract Raffle is VRFConsumerBaseV2 {
 
     /**Events */
     event EnteredRaffle(address indexed player);
-    event PickeWinner(address indexed winner);
+    event PickWinner(address indexed winner);
+    event RequestRaffleWinner(uint256 indexed requestId);
 
     constructor(
         uint256 entranceFee,
@@ -130,13 +131,15 @@ contract Raffle is VRFConsumerBaseV2 {
 
         // 1. Request RNG from Chainlink
         // 2. Get the random number
-        i_vrfCoordinator.requestRandomWords(
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLane,
             i_subscriptionId,
             REQUEST_CONFIRMATIONS,
             i_callbackGasLimit,
             NUM_WORDS
         );
+
+        emit RequestRaffleWinner(requestId);
     }
 
     // CEI: check-effect-interaction
@@ -153,7 +156,7 @@ contract Raffle is VRFConsumerBaseV2 {
 
         s_players = new address payable[](0);
         s_lastTimeStamp = block.timestamp;
-        emit PickeWinner(winner);
+        emit PickWinner(winner);
 
         // Interactions
         (bool success, ) = winner.call{value: address(this).balance}("");
