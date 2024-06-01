@@ -1,51 +1,64 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.18;
+pragma solidity ^0.8.18;
 
 import {Script} from "forge-std/Script.sol";
 import {Raffle} from "../src/Raffle.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
-
 import {CreateSubscription, FundSubscription, AddConsumer} from "./Interaction.s.sol";
 
 contract DeployRaffle is Script {
+    struct Config {
+        uint256 entranceFee;
+        uint256 interval;
+        address vrfCoordinator;
+        bytes32 gasLane;
+        uint64 subscriptionId;
+        uint32 callbackGasLimit;
+        address link;
+        uint256 deployerKey;
+    }
+    Config config;
+
     function run() external returns (Raffle, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig();
 
         (
-            uint256 entranceFee,
-            uint256 interval,
-            address vrfCoordinator,
-            bytes32 gasLane,
-            uint64 subscriptionId,
-            uint32 callbackGasLimit,
-            address link
+            config.entranceFee,
+            config.interval,
+            config.vrfCoordinator,
+            config.gasLane,
+            config.subscriptionId,
+            config.callbackGasLimit,
+            config.link,
+            config.deployerKey
         ) = helperConfig.activeNetworkConfig();
 
-        if (subscriptionId == 0) {
-            // We need to create a subscription
+        if (config.subscriptionId == 0) {
+            // Create and fund subscription
             CreateSubscription createSubscription = new CreateSubscription();
-            subscriptionId = createSubscription.createSubscription(
-                vrfCoordinator
+            config.subscriptionId = createSubscription.createSubscription(
+                config.vrfCoordinator,
+                config.deployerKey
             );
 
-            // Fund it
             FundSubscription fundSubscription = new FundSubscription();
             fundSubscription.fundSubscription(
-                vrfCoordinator,
-                subscriptionId,
-                link
+                config.vrfCoordinator,
+                config.subscriptionId,
+                config.link,
+                config.deployerKey
             );
         }
 
         // Deploy Raffle
-        vm.startBroadcast();
+        vm.startBroadcast(config.deployerKey);
         Raffle raffle = new Raffle(
-            entranceFee,
-            interval,
-            vrfCoordinator,
-            gasLane,
-            subscriptionId,
-            callbackGasLimit
+            config.entranceFee,
+            config.interval,
+            config.vrfCoordinator,
+            config.gasLane,
+            config.subscriptionId,
+            config.callbackGasLimit
         );
         vm.stopBroadcast();
 
@@ -53,8 +66,9 @@ contract DeployRaffle is Script {
         AddConsumer addConsumer = new AddConsumer();
         addConsumer.addConsumer(
             address(raffle),
-            vrfCoordinator,
-            subscriptionId
+            config.vrfCoordinator,
+            config.subscriptionId,
+            config.deployerKey
         );
 
         return (raffle, helperConfig);
