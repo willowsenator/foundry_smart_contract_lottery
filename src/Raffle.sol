@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity 0.8.18;
 
 import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
@@ -129,6 +129,11 @@ contract Raffle is VRFConsumerBaseV2 {
     }
 
     /** Getter Functions */
+
+    function getSubscriptionId() external view returns (uint64) {
+        return i_subscriptionId;
+    }
+
     function getEntranceFee() external view returns (uint256) {
         return i_entranceFee;
     }
@@ -151,5 +156,9 @@ contract Raffle is VRFConsumerBaseV2 {
 
     function getLastTimeStamp() external view returns (uint256) {
         return s_lastTimeStamp;
+    }
+
+    function getBalance() external view returns (uint256) {
+        return address(this).balance;
     }
 }
