@@ -55,14 +55,12 @@ contract RaffleTest is Test {
     }
 
     function testRaffleRevertsWhenYouDontPayEnough() public {
-        console.log(config.entranceFee);
         vm.prank(PLAYER);
         vm.expectRevert(Raffle.Raffle__InsufficientEthSent.selector);
         raffle.enterRaffle{value: config.entranceFee - 1}();
     }
 
     function testRaffleRevertsWhenYouPayNothing() public {
-        console.log(config.entranceFee);
         vm.prank(PLAYER);
         vm.expectRevert(Raffle.Raffle__InsufficientEthSent.selector);
         raffle.enterRaffle();
